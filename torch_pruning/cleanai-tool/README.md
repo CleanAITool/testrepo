@@ -5,10 +5,11 @@ PyTorch modelleri üzerinde structured pruning (kanal/filtre/layer bazlı budama
 ## Özellikler
 
 - ✅ **Sıfırdan Implementation**: Sadece PyTorch ve temel Python kütüphaneleri
-- ✅ **Weight-Activation Hybrid Scoring**: Hem ağırlık hem aktivasyon bazlı önem hesaplama
+- ✅ **Multiple Importance Metrics**: Weight-Activation Hybrid ve Neuron Coverage
 - ✅ **Autograd-based Tracing**: Otomatik bağımlılık grafiği oluşturma
 - ✅ **Structured Pruning**: Gerçek tensor slicing ile yapısal budama
 - ✅ **Dependency Resolution**: Katmanlar arası bağımlılıkları otomatik çözme
+- ✅ **Test-Driven Pruning**: Coverage analizi ile test kalitesi takibi
 
 ## Desteklenen Katmanlar
 
@@ -25,7 +26,7 @@ Bu proje bağımsızdır, herhangi bir dış pruning kütüphanesi gerektirmez.
 
 ```python
 # Proje içinden import
-from cleanai_tool import StructuredPruner, WeightActivationImportance
+from cleanai_tool import StructuredPruner, WeightActivationImportance, NeuronCoverageImportance
 ```
 
 ## Kullanım
@@ -117,7 +118,7 @@ Katmanlar arası bağımlılıklar tespit edilir:
 
 ### 3. Importance Scoring
 
-**Weight-Activation Hybrid Method:**
+**Method 1: Weight-Activation Hybrid**
 
 ```
 importance(channel_i) = α × ||W_i|| + β × ||A_i||
@@ -126,6 +127,16 @@ importance(channel_i) = α × ||W_i|| + β × ||A_i||
 - `W_i`: i. kanalın ağırlık normu (L2)
 - `A_i`: i. kanalın aktivasyon ortalaması
 - `α, β`: ağırlık ve aktivasyon oranları (α + β = 1)
+
+**Method 2: Neuron Coverage**
+
+```
+importance(channel_i) = frequency(i) × avg_strength(i)
+```
+
+- `frequency(i)`: Nöronun aktif olma sıklığı (test seti üzerinde)
+- `avg_strength(i)`: Aktif olduğunda ortalama aktivasyon değeri
+- Nadiren aktif olan nöronlar düşük skoralır ve pruning için aday olur
 
 ### 4. Channel Selection & Pruning
 
@@ -143,7 +154,8 @@ cleanai-tool/
 │   ├── dependency.py    # Dependencies
 │   └── group.py         # Pruning groups
 ├── importance/
-│   └── weight_activation.py  # Hybrid importance scorer
+│   ├── weight_activation.py  # Weight-Activation hybrid scorer
+│   └── neuron_coverage.py    # Neuron Coverage scorer
 ├── pruner/
 │   ├── functions.py     # Pruning functions (Conv, Linear, etc.)
 │   └── structured_pruner.py  # Ana pruner sınıfı
@@ -151,13 +163,51 @@ cleanai-tool/
     └── helpers.py       # Yardımcı fonksiyonlar
 ```
 
+## Neuron Coverage Kullanımı
+
+```python
+from cleanai_tool import StructuredPruner, NeuronCoverageImportance
+
+# Neuron Coverage importance scorer
+importance = NeuronCoverageImportance(
+    threshold=0.0,           # ReLU için 0.0
+    metric='coverage',       # 'frequency', 'strength', veya 'coverage'
+    percentile_threshold=25, # Alt %25'i penalize et
+    normalize=True
+)
+
+# Aktivasyonları topla
+importance.register_activation_hooks(model)
+importance.collect_activations(
+    model=model,
+    dataloader=test_loader,
+    max_batches=50
+)
+
+# Coverage raporunu göster
+importance.print_coverage_report()
+
+# Pruning
+pruner = StructuredPruner(
+    model=model,
+    example_inputs=torch.randn(1, 3, 32, 32),
+    importance=importance,
+    pruning_ratio=0.3
+)
+
+pruned_model = pruner.prune()
+importance.remove_hooks()
+```
+
 ## Örnekler
 
-`examples/` klasöründe detaylı örnekler bulabilirsiniz:
+Detaylı örnekler:
 
-- ResNet pruning
-- VGG pruning
-- Custom model pruning
+- `example_neuron_coverage_quick.py` - Neuron Coverage ile hızlı MNIST örneği
+- `example_neuron_coverage.py` - Neuron Coverage ile VGG11/CIFAR-10
+- `example_mnist_accuracy.py` - Weight-Activation ile SimpleCNN/MNIST
+- `example_vgg_cifar10.py` - Weight-Activation ile VGG11/CIFAR-10
+- `example_resnet50_imagenet.py` - Weight-Activation ile ResNet50/CIFAR-100
 
 ## Sınırlamalar
 

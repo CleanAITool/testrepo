@@ -10,11 +10,13 @@ try:
     from core.graph import DependencyGraph
     from core.group import PruningGroup
     from importance.weight_activation import WeightActivationImportance
+    from importance.neuron_coverage import NeuronCoverageImportance
     from pruner.functions import get_pruner
 except ImportError:
     from ..core.graph import DependencyGraph
     from ..core.group import PruningGroup
     from ..importance.weight_activation import WeightActivationImportance
+    from ..importance.neuron_coverage import NeuronCoverageImportance
     from ..pruner.functions import get_pruner
 
 
@@ -42,7 +44,7 @@ class StructuredPruner:
         self,
         model: nn.Module,
         example_inputs: torch.Tensor,
-        importance: Optional[WeightActivationImportance] = None,
+        importance: Optional[Union[WeightActivationImportance, NeuronCoverageImportance]] = None,
         pruning_ratio: float = 0.3,
         layer_pruning_ratios: Optional[Dict[nn.Module, float]] = None,
         ignored_layers: Optional[List[nn.Module]] = None,
