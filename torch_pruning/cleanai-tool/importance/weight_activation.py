@@ -92,6 +92,10 @@ class WeightActivationImportance:
             hook.remove()
         self._hooks = []
     
+    def remove_hooks(self):
+        """Alias for remove_activation_hooks (API compatibility)"""
+        self.remove_activation_hooks()
+    
     def clear_activation_cache(self):
         """Activation cache'i temizle"""
         self._activation_cache = {}
@@ -101,6 +105,7 @@ class WeightActivationImportance:
         model: nn.Module,
         dataloader: torch.utils.data.DataLoader,
         num_batches: Optional[int] = None,
+        max_batches: Optional[int] = None,
         device: str = 'cuda' if torch.cuda.is_available() else 'cpu'
     ):
         """
@@ -109,15 +114,19 @@ class WeightActivationImportance:
         Args:
             model: PyTorch modeli
             dataloader: Veri yükleyici
-            num_batches: Kaç batch kullanılacak (None = tümü)
+            num_batches: Kaç batch kullanılacak (None = tümü) - deprecated, use max_batches
+            max_batches: Kaç batch kullanılacak (None = tümü)
             device: Cihaz (cuda/cpu)
         """
+        # Backward compatibility: max_batches takes precedence
+        if max_batches is None:
+            max_batches = num_batches
         model.eval()
         self.register_activation_hooks(model)
         
         with torch.no_grad():
             for i, batch in enumerate(dataloader):
-                if num_batches is not None and i >= num_batches:
+                if max_batches is not None and i >= max_batches:
                     break
                 
                 # Batch'i device'a taşı
@@ -136,7 +145,7 @@ class WeightActivationImportance:
         self.remove_activation_hooks()
         
         # Normalize activations (batch sayısına böl)
-        num_samples = min(num_batches, len(dataloader)) if num_batches else len(dataloader)
+        num_samples = min(max_batches, len(dataloader)) if max_batches else len(dataloader)
         for module in self._activation_cache:
             self._activation_cache[module] /= num_samples
     

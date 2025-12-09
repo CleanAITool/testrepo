@@ -179,6 +179,10 @@ class NeuronCoverageImportance:
             hook.remove()
         self.hooks = []
     
+    def remove_activation_hooks(self):
+        """Alias for remove_hooks (API compatibility)"""
+        self.remove_hooks()
+    
     def __call__(
         self,
         group,
